@@ -207,7 +207,7 @@ public class FutureTaskDemo2 {
 
 ###### 	
 
-##### 2.1 completableFuture 的应用场景
+##### 2.1 CompletableFuture 的应用场景
 
 ###### 	描述依赖关系
 
@@ -390,21 +390,135 @@ public CompletableFuture<T> exceptionally(Function<Throwable,? extends T> fn)
 
 ###### whenComplete&exceptionally 使用
 
-```java
+​	`join()` 会阻塞线程，直到 `CompletableFuture` 完成。
 
+```java
+public class CompletableFutureWhenCompleteDemo {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+        CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
+            try {
+                TimeUnit.SECONDS.sleep(1);
+            } catch (InterruptedException e) {
+            }
+            if (new Random().nextInt(10) % 2 == 0) {
+                int i = 12 / 0;
+            }
+            System.out.println("执行结束！");
+            return "test";
+        });
+
+        //无论上面的逻辑是否成功还是失败，都会执行 whenComplete
+        future.whenComplete(new BiConsumer<String, Throwable>() {
+            @Override
+            public void accept(String t, Throwable action) {
+                System.out.println(t+" 执行完成！");
+            }
+        });
+        //异常捕捉处理
+        future.exceptionally(new Function<Throwable, String>() {
+            @Override
+            public String apply(Throwable t) {
+                System.out.println("执行失败：" + t.getMessage());
+                return "异常xxxx";
+            }
+        }).join();
+        //确保main线程 等待异步任务的完成，使得异常处理或者处理结果都可以正确的执行。
+        //future.join();
+    }
+}
 ```
 
 
 
+###### 结果转换
 
+​	就是将上一段任务的执行结果作为下一个阶段任务的入参参与重新计算，产生新的结果。
 
+###### thenApply
 
+​	thenApply 接收一个函数作为参数，使用该函数处理上一个CompletableFuture 调用的结果，并返回一个具有处理结果的Future对象。
 
+```java
+public <U> CompletableFuture<U> thenApply(Function<? super T,? extends U> fn)
+public <U> CompletableFuture<U> thenApplyAsync(Function<? super T,? extends U> fn)
+public <U> CompletableFuture<U> thenApplyAsync(Function<? super T,? extends U> fn, Executor executor) 
+```
 
+​	代码示例：
 
+```java
+public class CompletaleFutureThenApplyDemo {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
 
+        CompletableFuture<Integer> future = CompletableFuture.supplyAsync(() -> {
+            int result = 10;
+            System.out.println("异步任务执行第一阶段，result = " + result);
+            return result;
+        }).thenApplyAsync(num -> {
+            System.out.println("num 结果：" + num);
+            int result = num * 3;
+            System.out.println("异步任务执行第二阶段，result = " + result);
+            return result;
+        });
+        Integer res = future.get();
+        System.out.println("res = " + res);
+    }
+}
+```
 
+###### thenCompose 
 
+​	thenCompose 主要还是在于释放主线的阻塞，让系统更高效的处理其他并发任务。同时，允许任务之间进行灵活的线程调度。 
+
+​	thenCompose 的参数作为一个返回 CompltableFuture 实例的函数，该函数的参数是先前计算步骤的结果。
+
+```java
+public <U> CompletableFuture<U> thenCompose(Function<? super T, ? extends CompletionStage<U>> fn);
+public <U> CompletableFuture<U> thenComposeAsync(Function<? super T, ? extends CompletionStage<U>> fn) ;
+public <U> CompletableFuture<U> thenComposeAsync(Function<? super T, ? extends CompletionStage<U>> fn, Executor executor) ;
+```
+
+​	代码示例：
+
+```java
+public class CompletableThenComposeDemo {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+
+        CompletableFuture<Integer> future = CompletableFuture.supplyAsync(new Supplier<Integer>() {
+            @Override
+            public Integer get() {
+                int number = new Random().nextInt(30);
+                System.out.println("第一阶段：" + number);
+                return number;
+            }
+        }).thenCompose(new Function<Integer, CompletionStage<Integer>>() {
+            @Override
+            public CompletionStage<Integer> apply(Integer param) {
+                return CompletableFuture.supplyAsync(new Supplier<Integer>() {
+                    @Override
+                    public Integer get() {
+                        System.out.println(" 第二阶段执行中，param = " + param);
+                        int number = param * 2;
+                        System.out.println("第二阶段：" + number);
+                        return number;
+                    }
+                });
+            }
+        });
+        System.out.println("返回结果 result ： "+ future.get());
+    }
+}
+```
+
+###### thenApply 和 thenCompose的区别
+
+​	thenApply 转换的类型是泛型中的类型，返回的是同一个CompletableFuture。	
+
+​	thenCompose 将内部的CompletableFuture 调用展开来并使用上一个CompletableFuture 调用的结果在下一步的CompletableFuture 调用中进行运算，是生成一个新的CompletableFuture。
+
+```java
+
+```
 
 
 
