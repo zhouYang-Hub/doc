@@ -517,18 +517,110 @@ public class CompletableThenComposeDemo {
 ​	thenCompose 将内部的CompletableFuture 调用展开来并使用上一个CompletableFuture 调用的结果在下一步的CompletableFuture 调用中进行运算，是生成一个新的CompletableFuture。
 
 ```java
+代码示例：
+public class CompletableFutureThenApplyOrThenComposeDemo {
 
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+        CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> "hello ");
+        CompletableFuture<String> thenApply = future.thenApply(parm -> parm + "world");
+        CompletableFuture<String> thenCompose = future.thenCompose(parm -> CompletableFuture.supplyAsync(() -> parm + "world"));
+        System.out.println(thenApply.get());
+        System.out.println(thenCompose.get());
+
+    }
+}
 ```
 
+​	
+
+###### 结果消费
+
+​	与结果处理和结果转换系列函数返回一个新的CompletableFuture 不同，结果消费系列函数只对结果执行Action，而不返回新的计算值。
+
+​	消费函数：
+
+- thenAccept系列：对单个结果进行消费
+
+- thenAcceptBoth系列：对两个结果进行消费
+
+- thenRun系列：不关心结果，只对结果执行Action
+
+  
+
+###### thenAccept
+
+​	通过观察该系列函数的参数类型，它们是函数式接口Consumer；这个接口只有输入，没有返回值。
+
+```java
+public CompletionStage<Void> thenAccept(Consumer<? super T> action);
+public CompletionStage<Void> thenAcceptAsync(Consumer<? super T> action);
+public CompletionStage<Void> thenAcceptAsync(Consumer<? super T> action,Executor executor);
+```
+
+​	代码示例
+
+```java
+public class CompletableFutureThenAcceptDemo {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+        CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
+            int num = 10;
+            System.out.println("异步任务执行第一阶段，num = " + num);
+            return num;
+        }).thenAccept(num -> System.out.println("异步任务执行第二阶段，num = " + num * 2));
+        System.out.println(future.get());
+    }
+}
+```
+
+###### 	thenAcceptBoth
+
+​		thenAcceptBoth 函数的作用是，当两个 CompletionStage 都正常完成计算的时候，就会执行提供的action消费两个异步的结果。
+
+```java
+public <U> CompletionStage<Void> thenAcceptBoth(CompletionStage<? extends U> other,BiConsumer<? super T, ? super U> action);
+public <U> CompletionStage<Void> thenAcceptBothAsync(CompletionStage<? extends U> other,BiConsumer<? super T, ? super U> action);
+public <U> CompletionStage<Void> thenAcceptBothAsync(CompletionStage<? extends U> other,BiConsumer<? super T, ? super U> action,     Executor executor);
+```
+
+​	代码示例：
+
+```java
+public class CompletableFutureThenAcceptBothDemo {
+    public static void main(String[] args) {
+        CompletableFuture<Integer> future1 = CompletableFuture.supplyAsync(() -> {
+            int num = 10;
+            System.out.println("异步任务 future1，num = " + num);
+            return num;
+        });
+        CompletableFuture<Integer> future2 = CompletableFuture.supplyAsync(() -> {
+            int num = 20;
+            System.out.println("异步任务 future2，num = " + num);
+            return num;
+        });
+        future1.thenAcceptBoth(future2, new BiConsumer<Integer, Integer>() {
+            @Override
+            public void accept(Integer integer, Integer integer2) {
+                System.out.println("异步任务执行最终结果 BiConsumer t1 + t2 = " + (integer + integer2));
+            }
+        }).join();
+        System.out.println("main 线程结束");
+    }
+}
+```
+
+​	
+
+###### thenRun
+
+​	 thenRun 也是对线程任务结果的一种消费线程，与Accept 的不同是，thenRun会在上一阶段 CompletableFuture计算完成的时候执行一个Runnable；Runnable 并不使用该CompletableFuture计算的结果。
 
 
 
+​	
 
 
 
-
-
-
+​	
 
 
 
