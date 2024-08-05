@@ -319,7 +319,7 @@ public class CompletableFutureDemo {
 
 ​	 get()  方法抛出的是经过检查的异常，ExecutionException、InterruptedException 需要用户手动处理 （抛出或者 try-catch）。
 
-###### 结果处理
+##### 2.3 结果处理
 
 ​	当CompletableFuture 的计算结果完成，或者抛出异常的时候，我们就可以 执行特殊的Action。 下面是主要的方法：
 
@@ -430,7 +430,7 @@ public class CompletableFutureWhenCompleteDemo {
 
 
 
-###### 结果转换
+##### 2.4 结果转换
 
 ​	就是将上一段任务的执行结果作为下一个阶段任务的入参参与重新计算，产生新的结果。
 
@@ -533,7 +533,7 @@ public class CompletableFutureThenApplyOrThenComposeDemo {
 
 ​	
 
-###### 结果消费
+##### 2.5 结果消费
 
 ​	与结果处理和结果转换系列函数返回一个新的CompletableFuture 不同，结果消费系列函数只对结果执行Action，而不返回新的计算值。
 
@@ -608,53 +608,478 @@ public class CompletableFutureThenAcceptBothDemo {
 }
 ```
 
-​	
-
 ###### thenRun
 
 ​	 thenRun 也是对线程任务结果的一种消费线程，与Accept 的不同是，thenRun会在上一阶段 CompletableFuture计算完成的时候执行一个Runnable；Runnable 并不使用该CompletableFuture计算的结果。
 
+```java
+public CompletionStage<Void> thenRun(Runnable action);
+public CompletionStage<Void> thenRunAsync(Runnable action);
+public CompletionStage<Void> thenRunAsync(Runnable action,Executor executor);
+```
 
+​	示例：
+
+```java
+public class CompletableFutureTaskDemo {
+
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+        thenRunTask();
+    }
+    //消费函数 thenRun
+    public static void thenRunTask() throws ExecutionException, InterruptedException {
+        CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
+            System.out.println("hello world");
+            return "hello world";
+        }).thenRun(new Runnable() {
+            @Override
+            public void run() {
+                System.out.println("thenRun ");
+            }
+        });
+        System.out.println("最终结果：" + future.get());
+    }
+}
+```
+
+
+
+##### 2.6 结果组合 
+
+###### 	-thenCombine
+
+​	thenCombine方法，合并两个线程任务的结果，进一步处理
+
+```java
+public <U,V> CompletionStage<V> thenCombine(CompletionStage<? extends U> other,BiFunction<? super T,? super U,? extends V> fn);
+public <U,V> CompletionStage<V> thenCombineAsync(CompletionStage<? extends U> other,BiFunction<? super T,? super U,? extends V> fn);
+public <U,V> CompletionStage<V> thenCombineAsync(CompletionStage<? extends U> other,BiFunction<? super T,? super U,? extends V> fn,Executor executor);
+```
+
+示例代码：
+
+```java
+public class CompletableFutureTaskDemo {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+        thenCombineTask();
+    }
+    //thenCombine
+    public static void thenCombineTask() throws ExecutionException, InterruptedException {
+        CompletableFuture<Integer> future1 = CompletableFuture.supplyAsync(() -> {
+            System.out.println("future1");
+            return 1;
+        });
+        CompletableFuture<Integer> future2 = CompletableFuture.supplyAsync(() -> {
+            System.out.println("future2");
+            return 2;
+        });
+        future1.thenCombine(future2, (t1, t2) -> {
+            System.out.println(t1 + t2);
+            return t1 + t2;
+        });
+        System.out.println("最终结果：" + future1.get());
+    }
+}
+```
 
 ​	
 
+##### 2.7 任务交互 
+
+​	所谓的任务交互，是指将两个线程任务获取结果的速度相比较，按一定的顺序规则进行下一步处理。
+
+​	applyToEither ：两个线程任务相比较，先获得执行结果的，就对该结果进行下一步的转化操作。
+
+```java
+public <U> CompletionStage<U> applyToEither(CompletionStage<? extends T> other,Function<? super T, U> fn);
+public <U> CompletionStage<U> applyToEitherAsync(CompletionStage<? extends T> other,Function<? super T, U> fn);
+public <U> CompletionStage<U> applyToEitherAsync(CompletionStage<? extends T> other,Function<? super T, U> fn,Executor executor);
+```
+
+​	示例：
+
+```java
+//任务交互 所谓线程交互，是指 将两个线程任务获取结果的速度相比较，按一定的顺序进行下一步处理。
+//如果是使用异步去处理的话，就不需要join().同步方法处理的时候就需要Join().join 方法等待异步计算完成，并返回其结果
+public static void applyToEitherTask() throws ExecutionException, InterruptedException {
+
+    CompletableFuture<Integer> future1 = CompletableFuture.supplyAsync(new Supplier<Integer>() {
+        @Override
+        public Integer get() {
+            int i = 5;
+            try {
+                TimeUnit.SECONDS.sleep(i);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            return i;
+        }
+    });
+
+    CompletableFuture<Integer> future2 = CompletableFuture.supplyAsync(new Supplier<Integer>() {
+        @Override
+        public Integer get() {
+            int i = 10;
+            return i;
+        }
+    });
+
+    future1.applyToEitherAsync(future2, new Function<Integer, Integer>() {
+        @Override
+        public Integer apply(Integer i) {
+            System.out.println(i);
+            return i;
+        }
+    });
+}
+```
 
 
-​	
+
+###### acceptEither
+
+​	两个线程任务相比较，先获得执行结果的，就对该结果进行下一步的消费操作.
+
+```java
+public CompletionStage<Void> acceptEither(CompletionStage<? extends T> other,Consumer<? super T> action);
+public CompletionStage<Void> acceptEitherAsync(CompletionStage<? extends T> other,Consumer<? super T> action);
+public CompletionStage<Void> acceptEitherAsync(CompletionStage<? extends T> other,Consumer<? super T> action,Executor executor);
+```
+
+示例：
+
+```java
+// acceptEither 两个线程执行任务，先获得执行结果的，就对该结果进行下一步的消费操作。
+    private static void acceptEitherTask() {
+        CompletableFuture<Integer> f1 = CompletableFuture.supplyAsync(new Supplier<Integer>() {
+            @Override
+            public Integer get() {
+                int rest = 5;
+                try {
+                    TimeUnit.SECONDS.sleep(rest);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                return rest;
+            }
+        });
+        CompletableFuture<Integer> f2 = CompletableFuture.supplyAsync(new Supplier<Integer>() {
+            @Override
+            public Integer get() {
+                int rest = 2;
+                try {
+                    TimeUnit.SECONDS.sleep(rest);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                return rest;
+            }
+        });
+        f1.acceptEither(f2, new Consumer<Integer>() {
+            @Override
+            public void accept(Integer rest) {
+                System.out.println("最快结果：" + rest);
+            }
+        }).join();
+    }
+```
 
 
 
+###### runAfterEither
+
+两个线程任务相比较，有任何一个执行完，就进行下一步操作，不关心线程运行的结果。
+
+```java
+public CompletionStage<Void> runAfterEither(CompletionStage<?> other,Runnable action);
+public CompletionStage<Void> runAfterEitherAsync(CompletionStage<?> other,Runnable action);
+public CompletionStage<Void> runAfterEitherAsync(CompletionStage<?> other,Runnable action,Executor executor);
+```
+
+示例：
+
+```java
+//runAfterEither 两个线程任务相比较， 有任何一个执行完成，就进行下一步操作，不关心运行的结果,
+    private static void runAfterEither() {
+        CompletableFuture<Integer> r1 = CompletableFuture.supplyAsync(new Supplier<Integer>() {
+            @Override
+            public Integer get() {
+                int rest = 5;
+                try {
+                    TimeUnit.SECONDS.sleep(rest);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                return rest;
+            }
+        });
+
+        CompletableFuture<Integer> r2 = CompletableFuture.supplyAsync(new Supplier<Integer>() {
+            @Override
+            public Integer get() {
+                System.out.println("我这个线程先执行完 。。 ");
+                return 1;
+            }
+        });
+        r1.runAfterEither(r2, new Runnable() {
+            @Override
+            public void run() {
+                System.out.println("有一个线程执行结束 。。 ");
+            }
+        });
+    }
+```
+
+###### runAfterBoth
+
+​	两个线程任务相比较，两个全部执行完成，才进行下一步操作，不关心线程的运行结果。
+
+```java
+public CompletionStage<Void> runAfterBoth(CompletionStage<?> other,Runnable action);
+public CompletionStage<Void> runAfterBothAsync(CompletionStage<?> other,Runnable action);
+public CompletionStage<Void> runAfterBothAsync(CompletionStage<?> other,Runnable action,Executor executor);
+```
+
+​	示例：
+
+```java
+//runAfterBoth 两个线程执行任务， 两个线程执行完成，就进行下一步操作，不关心运行的结果
+    private static void runAfterBothTask() throws ExecutionException, InterruptedException {
+        CompletableFuture<Integer> r1 = CompletableFuture.supplyAsync(new Supplier<Integer>() {
+            @Override
+            public Integer get() {
+                return 1;
+            }
+        });
+        CompletableFuture<Integer> r2 = CompletableFuture.supplyAsync(new Supplier<Integer>() {
+            @Override
+            public Integer get() {
+                return 2;
+            }
+        });
+        r1.runAfterBoth(r2, new Runnable() {
+            @Override
+            public void run() {
+                System.out.println("上面两个任务都执行完成了。");
+            }
+        }).get();
+    }
+```
+
+###### anyOf
+
+方法
+
+```java
+public static CompletableFuture<Object> anyOf(CompletableFuture<?>... cfs)
+```
+
+代码示例：
+
+```java
+//anyOf方法的参数是给定多个 CompletableFuture ，当其中的任何一个完成时，方法返回这个 CompletableFuture。
+    private static void anyOfTask() throws ExecutionException, InterruptedException {
+        Random random = new Random();
+        CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+            try {
+                int num = random.nextInt(5);
+                System.out.println(" future1 = " + num);
+                TimeUnit.SECONDS.sleep(num);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            return "hello ";
+        });
+        CompletableFuture<String> future2 = CompletableFuture.supplyAsync(() -> {
+            try {
+                int num = random.nextInt(5);
+                System.out.println(" future2 = " + num);
+                TimeUnit.SECONDS.sleep(num);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            return "world";
+        });
+
+        CompletableFuture<Object> anyOf = CompletableFuture.anyOf(future1, future2);
+        System.out.println(" anyOf = " + anyOf.get());
+    }
+```
+
+###### allOf
+
+​	allOf方法用来实现多CompletableFuture 的同时返回
+
+```java
+public static CompletableFuture<Void> allOf(CompletableFuture<?>... cfs)
+```
+
+​	示例：
+
+```java
+//allOf  allOf方法用来实现多 CompletableFuture 的同时返回。
+    private static void allOfTask() {
+
+        Random random = new Random();
+
+        CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+            try {
+                int num = random.nextInt(5);
+                System.out.println(" future1 = " + num);
+                TimeUnit.SECONDS.sleep(num);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            return "hello ";
+        });
+
+        CompletableFuture<String> future2 = CompletableFuture.supplyAsync(() -> {
+            try {
+                int num = random.nextInt(5);
+                System.out.println(" future2 = " + num);
+                TimeUnit.SECONDS.sleep(num);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            return "world";
+        });
+
+        CompletableFuture<Void> allOf = CompletableFuture.allOf(future1, future2);
+        try {
+            allOf.get();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+        System.out.println("future1: " + future1.isDone() + "，future2: " + future2.isDone());
+    }
+```
+
+##### 2.8 场景案例
+
+​	![img](./iamge/84797)
+
+###### 基于FutureTask实现
+
+```java
+public class FutureTaskDemo01 {
+
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+        //基于 Future 实现
+        FutureTask<String> task2 = new FutureTask<>(new T2Task());
+        FutureTask<String> task1 = new FutureTask<>(new T1Task(task2));
+
+        Thread t1 = new Thread(task1);
+        Thread t2 = new Thread(task2);
+        t1.start();
+        t2.start();
+        // 等待线程T1执行结果
+        System.out.println(task1.get());
+    }
+
+}
+
+class T1Task implements Callable<String> {
+    FutureTask<String> task2;
+
+    //t1 的任务需要t2 任务的执行结果
+    T1Task(FutureTask<String> task2) {
+        this.task2 = task2;
+    }
+
+    @Override
+    public String call() throws Exception {
+        System.out.println(" T1 ： 洗水壶 。。。");
+        TimeUnit.SECONDS.sleep(1);
+
+        System.out.println(" T1 ： 洗茶壶 。。。");
+        TimeUnit.SECONDS.sleep(2);
+
+        //通过线程2 拿取茶叶
+        String tf = task2.get();
+        System.out.println("T1:拿到茶叶:" + tf);
+
+        System.out.println("T1:泡茶...");
+        return "上茶:" + tf;
+    }
+}
+
+class T2Task implements Callable<String> {
+    @Override
+    public String call() throws Exception {
+        System.out.println(" T2 ： 洗茶壶 。。。");
+        TimeUnit.SECONDS.sleep(1);
+
+        System.out.println(" T2 ： 洗茶叶");
+        TimeUnit.SECONDS.sleep(2);
+
+        System.out.println(" T2 ： 那茶叶 。。。");
+        TimeUnit.SECONDS.sleep(3);
+        return " 龙井";
+    }
+}
+```
 
 
 
+###### 基于CompletableFuture实现
 
+```java
+public class CompletableFutureTaskDemo01 {
 
+    public static void main(String[] args) {
+        //基于CompletableFuture 实现
+        //任务1：洗水壶->烧开水
+        CompletableFuture<Void> future1 = CompletableFuture.runAsync(new Runnable() {
+            @Override
+            public void run() {
+                sleep(1, TimeUnit.SECONDS);
+                System.out.println("T1:洗水壶...");
 
+                System.out.println("T1:烧开水...");
+                sleep(15, TimeUnit.SECONDS);
+            }
+        });
 
+        //任务2：洗茶壶->洗茶杯->拿茶叶
+        CompletableFuture<String> future2 = CompletableFuture.supplyAsync(new Supplier<String>() {
+            @Override
+            public String get() {
+                System.out.println("T2:洗茶壶...");
+                sleep(1, TimeUnit.SECONDS);
 
+                System.out.println("T2:洗茶杯...");
+                sleep(2, TimeUnit.SECONDS);
 
+                System.out.println("T2:拿茶叶...");
+                sleep(1, TimeUnit.SECONDS);
+                return "龙井";
+            }
+        });
 
+        CompletableFuture<String> future3 = future1.thenCombine(future2, (__, tf) -> {
+            System.out.println("T1:拿到茶叶:" + tf);
+            System.out.println("T1:泡茶...");
+            return "上茶:" + tf;
+        });
+        try {
+            System.out.println("最终执行结果:" + future3.get());
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    static void sleep(int t, TimeUnit u) {
+        try {
+            u.sleep(t);
+        } catch (InterruptedException e) {
+        }
+    }
+}
+```
 
 
 
